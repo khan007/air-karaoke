@@ -1,6 +1,7 @@
 ﻿package com {
 	import flash.text.TextField;
 	import flash.utils.setTimeout;
+	import flash.utils.clearTimeout;
 	
 	public class Notify {
 
@@ -18,6 +19,7 @@
 		}
 		
 		public static function show(str:String):void {
+			clearTimeout(_delay);
 			_tf.text = str;
 			_tf.visible = true;
 			_delay = setTimeout(_hide, DELAY_SHORT);

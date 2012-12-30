@@ -9,12 +9,18 @@
 
 		private static var _config:Object;
 		private static var configFile:File;
+		private static var _default:Object;
 	
 		public function Config() {
 			// constructor code
 		}
 		
 		public static function init():void {
+			_default = new Object();
+			_default.folder = File.applicationDirectory.nativePath;
+			_default.playbackWidth = 640;
+			_default.playbackHeight = 480;
+			
 			configFile = File.applicationStorageDirectory.resolvePath("config.ini");
 			
 			if (configFile.exists) {
@@ -22,13 +28,16 @@
 				_config = _readConfig(configFile);
 			} else {
 				// create it with default
-				_config = new Object();
-				_config.folder = "";//D:\\wip\\Karaoke Player\\songs\\";
-				_writeConfig(configFile, _config);
+				_writeConfig(configFile, _default);
 			}
 		}
 		
-		public static function get(key:String):String {
+		public static function get(key:String):* {
+			trace("CONFIG - "+key+": "+_config[key]);
+			trace("DEFAULT - "+key+": "+_default[key]);
+			if (_config[key] == undefined) {
+				return _default[key];
+			}
 			return _config[key];
 		}
 		
