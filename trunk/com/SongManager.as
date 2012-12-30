@@ -12,14 +12,19 @@
 	import flash.data.SQLResult;
 
 	import com.Notify;
+	import flash.events.EventDispatcher;
 
-	public class SongManager {
+	public class SongManager extends EventDispatcher{
 
 		private var _mp3List:Array = new Array();
 		private var _song:Sound = new Sound();
 		private var _sql:SQLConnection;
 		private var _sqlStatement:SQLStatement;
 		private var _total:uint = 0;
+		private var _searchString:String = "";
+		
+		public static const MAX_RESULT:uint = 50;
+		public static const REFRESH:String = "Refresh";
 
 		public function SongManager() {
 			// constructor code
@@ -52,7 +57,7 @@
 						}
 					}
 				} else {
-					// TODO: recursive check
+					mp3List = mp3List.concat(fetchMP3(file.nativePath));
 				}
 			}
 			
@@ -63,20 +68,59 @@
 			return _total;
 		}
 
-		public function getSongList(startIndex:uint = 0, len:uint = 50):Array {
+		public function findSong(str:String):Array {
+			_searchString = str;
+			return getSongList(0);
+		}
+
+		public function getSongList(startIndex:uint = 0, len:uint = MAX_RESULT):Array {
 			var songs:Array = new Array();
 
 			// get song from db
-			_sqlStatement.clearParameters();
-			
+			_sqlStatement.clearParameters();			
 			_sqlStatement.text = "SELECT COUNT(*) AS total FROM songs";
+			
+			if (_searchString.length > 0) {
+				var words:Array = _searchString.split(" ");
+				_sqlStatement.text += " WHERE";
+				
+				var likeStatements = "";
+				for (var i:uint = 0; i < words.length; i++) {
+					if (words[i].length == 0) {
+						continue;
+					}
+					if (likeStatements.length > 0) {
+						likeStatements += " AND";
+					}
+					likeStatements += " (name LIKE '%"+words[i]+"%' OR artist LIKE '%"+words[i]+"%')";
+				}
+				_sqlStatement.text += likeStatements;
+			}
+			trace(_sqlStatement.text);
 			_sqlStatement.execute();
 			
 			// go through result;
 			var sqlresult:SQLResult = _sqlStatement.getResult();
 			_total = sqlresult.data[0]['total'];
 			
-			_sqlStatement.text = "SELECT * FROM songs ORDER BY name LIMIT "+len+" OFFSET "+startIndex;
+			_sqlStatement.text = "SELECT * FROM songs";
+			if (_searchString.length > 0) {
+				var words:Array = _searchString.split(" ");
+				_sqlStatement.text += " WHERE";
+				
+				var likeStatements = "";
+				for (var i:uint = 0; i < words.length; i++) {
+					if (words[i].length == 0) {
+						continue;
+					}
+					if (likeStatements.length > 0) {
+						likeStatements += " AND";
+					}
+					likeStatements += " (name LIKE '%"+words[i]+"%' OR artist LIKE '%"+words[i]+"%')";
+				}
+				_sqlStatement.text += likeStatements;
+			}
+			_sqlStatement.text += " ORDER BY name LIMIT "+len+" OFFSET "+startIndex;
 			trace(_sqlStatement.text);
 			_sqlStatement.execute();
 
@@ -110,6 +154,8 @@
 			if (_mp3List.length > 0) {
 				_song = new Sound(new URLRequest(_mp3List[0].nativePath));
 				_song.addEventListener(Event.COMPLETE, _onComplete);
+			} else {
+				dispatchEvent(new Event(REFRESH));
 			}
 		}
 

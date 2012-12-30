@@ -21,6 +21,8 @@
 	import com.Menu;
 	import com.Config;
 	import com.Notify;
+    import flash.events.ErrorEvent;
+    import flash.events.UncaughtErrorEvent;
 
 	public class Main extends MovieClip {
 
@@ -44,6 +46,9 @@
 		private const DS:String = File.separator;
 
 		public function Main() {
+			// catch global unhandled error
+			loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, _uncaughtErrorHandler);
+			
 			// stage setup
 			stage.scaleMode = StageScaleMode.NO_SCALE; 
 			stage.align = StageAlign.TOP_LEFT;
@@ -58,6 +63,7 @@
 			
 			// song manager
 			_songManager = new SongManager();
+			_songManager.addEventListener(SongManager.REFRESH, _refreshPlaylist);
 			
 			// generic list panel
 			_songPanel = new SongListPanel(_songManager);
@@ -71,11 +77,11 @@
 			
 			// menu
 			_menu = new Menu(_songManager);
-			_menu.addEventListener(Menu.REFRESH, _refreshPlaylist);
 
 			// initialize YouTube layer
 			_youTube = new YouTube(stage.stageWidth, stage.stageHeight);
 			_youTube.addEventListener(YouTube.READY, _onReady);
+			_youTube.addEventListener(YouTube.NO_VIDEO , _noVideo);
 
 			// initialize CDG processor
 			_cdg = new CDG(stage.stageWidth, stage.stageHeight);
@@ -123,6 +129,10 @@
 			_songPanel.refreshList();
 		}
 
+		private function _noVideo(e:Event):void {
+			_container.removeChild(_youTube);
+		}
+
 		private function _onReady(e:Event):void {
 			switch (e.target) {
 				case _youTube :
@@ -155,11 +165,15 @@
 				if (songName.length > 0) {
 					// add youtube background
 					_youTube.setSize(stage.stageWidth, stage.stageHeight);
-					_youTube.visible = true;
-					_youTube.findAndPlay(songName);
+					if (!_container.contains(_youTube)) {
+						_container.addChildAt(_youTube, 0);
+					}
+					_youTube.findAndPlay(songName+" official");
 					_isTransparent = true;
 				} else {
-					_youTube.visible = false;
+					if (_container.contains(_youTube)) {
+						_container.removeChild(_youTube);
+					}
 					_isTransparent = false;
 				}
 				
@@ -187,6 +201,11 @@
 			menu_btn.x = stage.stageWidth - menu_btn.width;
 			task_txt.y = stage.stageHeight-task_txt.height;
 			task_txt.width = stage.stageWidth;
+		}
+		
+		private function _uncaughtErrorHandler(e:UncaughtErrorEvent):void {
+			trace(e.error);
+			e.preventDefault();
 		}
 	}
 

@@ -16,9 +16,11 @@
 		private var _selectedSong:Song;
 		private var _leftArrow:LeftArrow;
 		private var _rightArrow:RightArrow;
+		private var _searchPanel:Search;
 		private var _startIndex:uint;
 		private var _endIndex:uint;
 		private var _songManager:SongManager;
+		private var _pageCount:uint;
 
 		public function SongListPanel(songManager:SongManager) {
 			// constructor code
@@ -29,9 +31,12 @@
 			
 			_leftArrow = new LeftArrow();
 			_rightArrow = new RightArrow();
+			_searchPanel = new Search();
+			_container.addChild(_searchPanel);
 			
 			_leftArrow.addEventListener(MouseEvent.CLICK, _onNavigate);
 			_rightArrow.addEventListener(MouseEvent.CLICK, _onNavigate);
+			_searchPanel.search_txt.addEventListener(Event.CHANGE, _onSearch);
 		}
 		
 		private function _showList(startIndex:uint = 0):void {
@@ -48,9 +53,9 @@
 			_list = list;
 			_startIndex = startIndex;
 			var itemHeight:uint = songItem.height;
+			_pageCount = Math.floor(stage.stageHeight/itemHeight) - 2;
 			var startY:uint = itemHeight;
-			var count:uint = 0;
-			for (var i:uint = 0; i < list.length && startY + songItem.height < stage.stageHeight; i++) {
+			for (var i:uint = 0; i < _pageCount && i < list.length; i++) {
 				songItem = new SongListItem(list[i]);
 				songItem.addEventListener(MouseEvent.CLICK, _onClick);
 				_container.addChild(songItem);
@@ -58,12 +63,10 @@
 				songItem.setSize(stage.stageWidth);
 				songItem.y = startY ;
 				startY += songItem.height;
-				count++;
 			}
-			_endIndex = _startIndex+count;
+			_endIndex = _startIndex + _pageCount;
 			
-			
-			if (_endIndex < _songManager.getTotal() -1) {
+			if (_endIndex < _songManager.getTotal()) {
 				_container.addChild(_rightArrow);
 				_rightArrow.x = stage.stageWidth-_rightArrow.width - PADDING;
 				_rightArrow.y = stage.stageHeight-_rightArrow.height - PADDING;
@@ -74,6 +77,10 @@
 				_leftArrow.x = stage.stageWidth-_leftArrow.width - _leftArrow.width - PADDING*2;
 				_leftArrow.y = stage.stageHeight-_leftArrow.height - PADDING;
 			}
+			
+			_searchPanel.x = PADDING;
+			_searchPanel.y = stage.stageHeight-_searchPanel.height-PADDING;
+			_container.setChildIndex(_searchPanel, _container.numChildren-1);
 		}
 		
 		private function _destroyAllItems():void {
@@ -111,18 +118,23 @@
 			dispatchEvent(new Event(PLAY_SONG));
 		}
 		
+		private function _onSearch(e:Event):void {
+			trace(e.target.text);
+			_songManager.findSong(e.target.text);
+			_showList();
+		}
+		
 		private function _onNavigate(e:MouseEvent):void {
-			var pageCount:uint = _endIndex - _startIndex;
 			switch (e.target) {
 				case _leftArrow:
-					var startIndex:int = _startIndex-pageCount-1;
+					var startIndex:int = _startIndex-_pageCount;
 					if (startIndex < 0) {
 						startIndex = 0;
 					}
 					_showList(startIndex);
 					break;
 				case _rightArrow:
-					_showList(_endIndex+1);
+					_showList(_endIndex);
 					break;
 			}
 		}
