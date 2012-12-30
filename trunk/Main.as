@@ -21,8 +21,11 @@
 	import com.Menu;
 	import com.Config;
 	import com.Notify;
-    import flash.events.ErrorEvent;
-    import flash.events.UncaughtErrorEvent;
+	import flash.events.ErrorEvent;
+
+	// Window stuff
+	import flash.desktop.NativeApplication;
+	import com.PlaybackWindow;
 
 	public class Main extends MovieClip {
 
@@ -37,80 +40,96 @@
 		private var _config:Object;
 		private var _file:String,_folder:String;
 		private var _isTransparent:Boolean;
-		
-		// sections		
-		private var _container:Sprite;
+
+		// sections
 		private var _songPanel:SongListPanel;
 		private var _menu:Menu;
+		private var _playbackWindow:PlaybackWindow;
 
 		private const DS:String = File.separator;
 
 		public function Main() {
-			// catch global unhandled error
-			loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, _uncaughtErrorHandler);
-			
-			// stage setup
-			stage.scaleMode = StageScaleMode.NO_SCALE; 
+			// stage setup;
+			stage.scaleMode = StageScaleMode.NO_SCALE;
 			stage.align = StageAlign.TOP_LEFT;
 			stage.addEventListener(Event.RESIZE, _onStageResize);
-			
+
 			// config
 			Config.init();
-			
+
 			// notification manager
 			task_txt.mouseEnabled = false;
 			Notify.init(task_txt);
-			
+
 			// song manager
 			_songManager = new SongManager();
 			_songManager.addEventListener(SongManager.REFRESH, _refreshPlaylist);
-			
-			// generic list panel
+
+			// generic list panel;
 			_songPanel = new SongListPanel(_songManager);
 			_songPanel.addEventListener(SongListPanel.PLAY_SONG, _playSong);
 			this.addChildAt(_songPanel, 0);
 			_songPanel.refreshList();
-			
-			// container for CDG + youtube
-			_container = new Sprite();
-			this.addChildAt(_container, 0);			
-			
+
+			// create new window to house the MV
+			_playbackWindow = new PlaybackWindow();
+			_playbackWindow.setSize(Config.get('playbackWidth'), Config.get('playbackHeight'));
+			_playbackWindow.addEventListener(Event.CLOSE, _endPlayback);
+			_playbackWindow.x = stage.nativeWindow.x + stage.nativeWindow.width;
+			_playbackWindow.y = stage.nativeWindow.y;
+			_playbackWindow.activate();
+
 			// menu
 			_menu = new Menu(_songManager);
 
 			// initialize YouTube layer
-			_youTube = new YouTube(stage.stageWidth, stage.stageHeight);
+			_youTube = new YouTube(Config.get('playbackWidth'), Config.get('playbackHeight'));
 			_youTube.addEventListener(YouTube.READY, _onReady);
 			_youTube.addEventListener(YouTube.NO_VIDEO , _noVideo);
 
 			// initialize CDG processor
-			_cdg = new CDG(stage.stageWidth, stage.stageHeight);
+			_cdg = new CDG(Config.get('playbackWidth'), Config.get('playbackHeight'));
 			_cdg.addEventListener(Event.COMPLETE, _onReady);
-			_cdg.addEventListener(CDG.EOF, _cdgEnd);
-			
+
 			// initialize _music
 			_initUI();
+
+			// exit
+			stage.nativeWindow.addEventListener(Event.CLOSE, _closeApplication);
+		}
+
+		private function _endPlayback(e:Event):void {
+			_stopPlayback();
 		}
 		
+		private function _stopPlayback():void {
+			_playbackWindow.removeChild(_youTube);
+			_playbackWindow.removeChild(_cdg);
+			_soundChannel.stop();
+			_youTube.stop();
+			
+			this.removeEventListener(Event.ENTER_FRAME, _onLoop);
+		}
+
 		private function _playSong(e:Event):void {
 			var song:Song = _songPanel.getSelectedSong();
 			_cdg.loadCDG(song.url+".cdg");
-			
+
 			_soundChannel.stop();
-			_music = new Sound(new URLRequest(song.url+".mp3"));
+			_music = new Sound(new URLRequest(song.url + ".mp3"));
 			_music.addEventListener(Event.ID3, _onReady);
-			
-			_songPanel.collapse();
+
+			_playbackWindow.activate();
 		}
-		
+
 		private function _initUI():void {
-			menu_btn.addEventListener(MouseEvent.CLICK, _onClick);	
+			menu_btn.addEventListener(MouseEvent.CLICK, _onClick);
 			songList_btn.addEventListener(MouseEvent.CLICK, _onClick);
 		}
-		
+
 		private function _onClick(e:MouseEvent):void {
 			switch (e.target) {
-				case menu_btn:
+				case menu_btn :
 					if (this.contains(_menu)) {
 						this.removeChild(_menu);
 					} else {
@@ -119,7 +138,7 @@
 						_menu.y = (stage.stageHeight - _menu.height)/2;
 					}
 					break;
-				case songList_btn:
+				case songList_btn :
 					_songPanel.toggle();
 					break;
 			}
@@ -130,7 +149,8 @@
 		}
 
 		private function _noVideo(e:Event):void {
-			_container.removeChild(_youTube);
+			_playbackWindow.removeChild(_youTube);
+			_isTransparent = false;
 		}
 
 		private function _onReady(e:Event):void {
@@ -147,43 +167,34 @@
 					break;
 			}
 
-			if (_isYouTubeReady && _isCDGReady && _isMP3Ready) {			
+			if (_isYouTubeReady && _isCDGReady && _isMP3Ready) {
 				// add CDG bitmap
 				_cdg.setSize(stage.stageWidth, stage.stageHeight);
-				_container.addChild(_cdg);
-				
+				_playbackWindow.addChild(_cdg);
+
 				_soundChannel.stop();
 				_soundChannel = _music.play();
 				var songName:String = "";
 				if (_music.id3.songName != null) {
 					songName = _music.id3.songName;
 					if (_music.id3.artist != null) {
-						songName += " "+_music.id3.artist;
+						songName +=  " " + _music.id3.artist;
 					}
 				}
-				
+
 				if (songName.length > 0) {
 					// add youtube background
 					_youTube.setSize(stage.stageWidth, stage.stageHeight);
-					if (!_container.contains(_youTube)) {
-						_container.addChildAt(_youTube, 0);
-					}
-					_youTube.findAndPlay(songName+" official");
+					_playbackWindow.addChildAt(_youTube, 0);
 					_isTransparent = true;
+					_youTube.findAndPlay(songName+" official");
 				} else {
-					if (_container.contains(_youTube)) {
-						_container.removeChild(_youTube);
-					}
 					_isTransparent = false;
+					_playbackWindow.removeChild(_youTube);
 				}
-				
-				_container.addEventListener(Event.ENTER_FRAME, _onLoop);
-			}
-		}
 
-		private function _cdgEnd(e:Event):void {
-			trace("End of CDG." + this.hasEventListener(Event.ENTER_FRAME));
-			this.removeEventListener(Event.ENTER_FRAME, _onLoop);
+				this.addEventListener(Event.ENTER_FRAME, _onLoop);
+			}
 		}
 
 		private function _onLoop(e:Event):void {
@@ -191,21 +202,18 @@
 			var cdgPosition:int = Math.round(Math.ceil(((_soundChannel.position)/3.33)-1));
 			_cdg.render(cdgPosition, _isTransparent);
 		}
-		
+
 		private function _onStageResize(e:Event):void {
 			_songPanel.setSize(stage.stageWidth, stage.stageHeight);
-			_cdg.setSize(stage.stageWidth, stage.stageHeight);
-			_youTube.setSize(stage.stageWidth, stage.stageHeight);
-			
+
 			// reposition
 			menu_btn.x = stage.stageWidth - menu_btn.width;
-			task_txt.y = stage.stageHeight-task_txt.height;
+			task_txt.y = stage.stageHeight - task_txt.height;
 			task_txt.width = stage.stageWidth;
 		}
-		
-		private function _uncaughtErrorHandler(e:UncaughtErrorEvent):void {
-			trace(e.error);
-			e.preventDefault();
+
+		public function _closeApplication(e:Event):void {
+			NativeApplication.nativeApplication.exit();
 		}
 	}
 

@@ -5,12 +5,14 @@
 	import flash.display.Loader;
 	import flash.system.Security;
 	import flash.net.URLLoader;
+	import flash.events.UncaughtErrorEvent;
+	import flash.events.IOErrorEvent;
 
 	public class YouTube extends Sprite {
 
 		// This will hold the API player instance once it is initialized.;
 		private var _player:Object;
-		private var _loader:Loader = new Loader;
+		private var _loader:Loader;
 		private var _youtubeIndex:uint = 0;
 		private var _searchResult:Object;
 		private var _width:uint, _height:uint;
@@ -27,15 +29,23 @@
 			// SWF file. Your code must call Security.allowDomain() to allow this
 			// communication.
 			//Security.allowDomain("www.youtube.com");
-
+			_loader = new Loader();
 			_loader.contentLoaderInfo.addEventListener(Event.INIT, _onLoaderInit);
+			_loader.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, _onIOError);
 			_loader.load(new URLRequest("http://www.youtube.com/apiplayer?version=3&iv_load_policy=3&modestbranding=1&rel=0&showinfo=0"));
+			
+			// catch global unhandled error
+			_loader.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, _uncaughtErrorHandler);
 		}
 		
 		public function findAndPlay(query:String):void {
-			var queryRequest:URLRequest = new URLRequest("http://gdata.youtube.com/feeds/api/videos?q="+escape(query)+"&alt=json&format=5&safeSearch=strict&v=2&max-results=10");
-			var queryLoader:URLLoader = new URLLoader(queryRequest);
-			queryLoader.addEventListener(Event.COMPLETE, _onSearchComplete);
+			if (_player) {
+				var queryRequest:URLRequest = new URLRequest("http://gdata.youtube.com/feeds/api/videos?q="+escape(query)+"&alt=json&format=5&safeSearch=strict&v=2&max-results=10");
+				var queryLoader:URLLoader = new URLLoader(queryRequest);
+				queryLoader.addEventListener(Event.COMPLETE, _onSearchComplete);
+			} else {
+				dispatchEvent(new Event(NO_VIDEO));
+			}
 		}
 		
 		public function setSize(w:uint, h:uint):void {
@@ -48,9 +58,14 @@
 			}
 		}
 		
+		public function stop():void {
+			if (_player) {
+				_player.stopVideo();
+			}
+		}
+		
 		private function _onSearchComplete(e:Event):void {
 			_searchResult = JSON.parse(e.target.data);
-			trace(e.target.data);
 			_youtubeIndex = 0;
 			
 			// 1. extract the id
@@ -71,14 +86,9 @@
 			}
 			
 			if (valid) {
-				trace("VALID YT: "+_youtubeIndex);
-				try {
-					_player.loadVideoById(_searchResult.feed.entry[_youtubeIndex].media$group.yt$videoid.$t);
-					_player.mute();
-				} catch (e:Error) {
-					trace("GLOBAL ERROR BY YT");
-					dispatchEvent(new Event(NO_VIDEO));
-				}
+				_player.stopVideo();
+				_player.loadVideoById(_searchResult.feed.entry[_youtubeIndex].media$group.yt$videoid.$t);
+				_player.mute();
 			} else {
 				dispatchEvent(new Event(NO_VIDEO));
 			}
@@ -131,6 +141,16 @@
 		private function _onVideoPlaybackQualityChange(event:Event):void {
 			// Event.data contains the event parameter, which is the new video quality
 			trace("video quality:", Object(event).data);
+		}
+		
+		private function _onIOError(evt:Event):void {
+			trace("YouTube video disabled.");
+			dispatchEvent(new Event(READY));
+		}
+
+		private function _uncaughtErrorHandler(e:UncaughtErrorEvent):void {
+			trace(e.error);
+			e.preventDefault();
 		}
 	}
 
