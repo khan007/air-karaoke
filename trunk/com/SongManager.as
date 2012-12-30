@@ -22,6 +22,7 @@
 		private var _sqlStatement:SQLStatement;
 		private var _total:uint = 0;
 		private var _searchString:String = "";
+		private var _foundTotal:uint = 0;
 		
 		public static const MAX_RESULT:uint = 50;
 		public static const REFRESH:String = "Refresh";
@@ -85,6 +86,7 @@
 				_sqlStatement.text += " WHERE";
 				
 				var likeStatements = "";
+				var parameterCount:uint = 0;
 				for (var i:uint = 0; i < words.length; i++) {
 					if (words[i].length == 0) {
 						continue;
@@ -92,7 +94,10 @@
 					if (likeStatements.length > 0) {
 						likeStatements += " AND";
 					}
-					likeStatements += " (name LIKE '%"+words[i]+"%' OR artist LIKE '%"+words[i]+"%')";
+					//likeStatements += " (name LIKE '%"+words[i]+"%' OR artist LIKE '%"+words[i]+"%')";
+					likeStatements += " (name LIKE @param"+parameterCount+" OR artist LIKE @param"+parameterCount+")";
+					_sqlStatement.parameters["@param"+parameterCount] = '%'+words[i]+'%';
+					parameterCount++;
 				}
 				_sqlStatement.text += likeStatements;
 			}
@@ -109,6 +114,7 @@
 				_sqlStatement.text += " WHERE";
 				
 				var likeStatements = "";
+				var parameterCount:uint = 0;
 				for (var i:uint = 0; i < words.length; i++) {
 					if (words[i].length == 0) {
 						continue;
@@ -116,9 +122,10 @@
 					if (likeStatements.length > 0) {
 						likeStatements += " AND";
 					}
-					likeStatements += " (name LIKE '%"+words[i]+"%' OR artist LIKE '%"+words[i]+"%')";
+					likeStatements += " (name LIKE @param"+parameterCount+" OR artist LIKE @param"+parameterCount+")";			
+					parameterCount++;
 				}
-				_sqlStatement.text += likeStatements;
+				_sqlStatement.text += likeStatements;	
 			}
 			_sqlStatement.text += " ORDER BY name LIMIT "+len+" OFFSET "+startIndex;
 			trace(_sqlStatement.text);
@@ -147,6 +154,7 @@
 			_sqlStatement.execute();
 
 			_mp3List = mp3List;
+			_foundTotal = mp3List.length;
 			_readMP3();
 		}
 
@@ -155,6 +163,7 @@
 				_song = new Sound(new URLRequest(_mp3List[0].nativePath));
 				_song.addEventListener(Event.COMPLETE, _onComplete);
 			} else {
+				Notify.show("Complete.");
 				dispatchEvent(new Event(REFRESH));
 			}
 		}
@@ -168,7 +177,7 @@
 				id3.songName = null;
 			}
 
-			Notify.show("Adding song: "+url);
+			Notify.show(Math.round(((_foundTotal-_mp3List.length)/_foundTotal)*100)+"% Done. Adding: "+url);
 
 			// only insert if not found
 			_sqlStatement.clearParameters();

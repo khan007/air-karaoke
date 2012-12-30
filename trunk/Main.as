@@ -128,18 +128,20 @@
 		}
 
 		private function _onClick(e:MouseEvent):void {
+			// hide all
+			if (this.contains(_menu)) {
+				this.removeChild(_menu);
+			}
+			_songPanel.hide();
+			
 			switch (e.target) {
 				case menu_btn :
-					if (this.contains(_menu)) {
-						this.removeChild(_menu);
-					} else {
 						this.addChild(_menu);
 						_menu.x = (stage.stageWidth - _menu.width)/2;
 						_menu.y = (stage.stageHeight - _menu.height)/2;
-					}
 					break;
 				case songList_btn :
-					_songPanel.toggle();
+					_songPanel.show();
 					break;
 			}
 		}

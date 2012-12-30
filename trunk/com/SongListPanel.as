@@ -144,13 +144,13 @@
 			_showList();
 		}
 		
-		public function collapse():void {
+		public function hide():void {
 			// hide
 			_container.visible = false;
 		}
 		
-		public function toggle():void {
-			_container.visible = !_container.visible;
+		public function show():void {
+			_container.visible = true;
 		}
 
 	}
