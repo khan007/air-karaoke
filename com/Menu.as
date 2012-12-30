@@ -15,6 +15,7 @@
 			// constructor code
 			_songManager = songManager;
 			location_txt.text = Config.get('folder');
+			location_txt.mouseEnabled = false;
 			
 			// init buttons
 			updateDatabase_btn.addEventListener(MouseEvent.CLICK, _onClick);
