@@ -16,6 +16,7 @@
 		private var _width:uint, _height:uint;
 		
 		public static const READY:String = "Ready";
+		public static const NO_VIDEO:String = "NoVideo";
 
 		public function YouTube(w:uint, h:uint) {
 			// constructor code
@@ -32,7 +33,7 @@
 		}
 		
 		public function findAndPlay(query:String):void {
-			var queryRequest:URLRequest = new URLRequest("https://gdata.youtube.com/feeds/api/videos?q="+escape(query)+"&alt=json&format=5&safeSearch=strict&v=2&max-results=5");
+			var queryRequest:URLRequest = new URLRequest("http://gdata.youtube.com/feeds/api/videos?q="+escape(query)+"&alt=json&format=5&safeSearch=strict&v=2&max-results=10");
 			var queryLoader:URLLoader = new URLLoader(queryRequest);
 			queryLoader.addEventListener(Event.COMPLETE, _onSearchComplete);
 		}
@@ -49,13 +50,38 @@
 		
 		private function _onSearchComplete(e:Event):void {
 			_searchResult = JSON.parse(e.target.data);
-			
+			trace(e.target.data);
 			_youtubeIndex = 0;
 			
 			// 1. extract the id
-			// 2. call to play video			
-			_player.loadVideoById(_searchResult.feed.entry[0].media$group.yt$videoid.$t);
-			_player.mute();
+			// 2. call to play video
+			// check if there's app control
+			var valid:Boolean = true;
+			
+			while (!valid && _searchResult.feed.entry.length -1 > _youtubeIndex) {
+				if (_searchResult.feed.entry[_youtubeIndex].app$control != null) {
+					if (!_searchResult.feed.entry[_youtubeIndex].app$control.yt$state.name == "restricted") {
+						valid = true;
+					}
+				}
+				
+				if (!valid) {
+					_youtubeIndex++;
+				}
+			}
+			
+			if (valid) {
+				trace("VALID YT: "+_youtubeIndex);
+				try {
+					_player.loadVideoById(_searchResult.feed.entry[_youtubeIndex].media$group.yt$videoid.$t);
+					_player.mute();
+				} catch (e:Error) {
+					trace("GLOBAL ERROR BY YT");
+					dispatchEvent(new Event(NO_VIDEO));
+				}
+			} else {
+				dispatchEvent(new Event(NO_VIDEO));
+			}
 		}
 		
 		private function _onLoaderInit(event:Event):void {
@@ -88,9 +114,10 @@
 				case 150:
 					if (_searchResult.feed.entry.length -1 > _youtubeIndex) {
 						_youtubeIndex++;
-						trace(_searchResult.feed.entry[_youtubeIndex].media$group.yt$videoid.$t);
 						_player.loadVideoById(_searchResult.feed.entry[_youtubeIndex].media$group.yt$videoid.$t);
 						_player.mute();
+					} else {
+						dispatchEvent(new Event(NO_VIDEO));
 					}
 					break;
 			}

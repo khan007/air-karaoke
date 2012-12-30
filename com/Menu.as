@@ -11,8 +11,6 @@
 		
 		private var _songManager:SongManager;
 		
-		public static const REFRESH:String = "Refresh";
-		
 		public function Menu(songManager:SongManager):void {
 			// constructor code
 			_songManager = songManager;
@@ -33,7 +31,6 @@
 				case updateDatabase_btn:
 					var mp3List:Array = _songManager.fetchMP3(Config.get('folder'));
 					_songManager.readMP3TagAsync(mp3List);
-					dispatchEvent(new Event(REFRESH));
 					break;
 			}
 		}
