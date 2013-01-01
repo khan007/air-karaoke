@@ -40,6 +40,7 @@
 		private var _config:Object;
 		private var _file:String,_folder:String;
 		private var _isTransparent:Boolean;
+		private var _isPlaying:Boolean = false;
 
 		// sections
 		private var _songPanel:SongListPanel;
@@ -64,10 +65,10 @@
 			// song manager
 			_songManager = new SongManager();
 			_songManager.addEventListener(SongManager.REFRESH, _refreshPlaylist);
-
+			
 			// generic list panel;
 			_songPanel = new SongListPanel(_songManager);
-			_songPanel.addEventListener(SongListPanel.PLAY_SONG, _playSong);
+			_songPanel.addEventListener(SongListPanel.START_SONG, _startSong);
 			this.addChildAt(_songPanel, 0);
 			_songPanel.refreshList();
 
@@ -102,17 +103,31 @@
 			_stopPlayback();
 		}
 		
+		private function _nextSong(e:Event):void {
+			_stopPlayback();
+			_playSong(_songManager.getNextSong());
+		}
+		
 		private function _stopPlayback():void {
 			_playbackWindow.removeChild(_youTube);
 			_playbackWindow.removeChild(_cdg);
 			_soundChannel.stop();
 			_youTube.stop();
-			
+			_isPlaying = false;
 			this.removeEventListener(Event.ENTER_FRAME, _onLoop);
 		}
 
-		private function _playSong(e:Event):void {
-			var song:Song = _songPanel.getSelectedSong();
+		private function _startSong(e:Event):void {
+			if (!_isPlaying) {
+				_playSong(_songPanel.getSelectedSong());
+			}
+		}
+		
+		private function _playSong(song:Song):void {
+			if (song == null) {
+				return;
+			}
+			_isPlaying = true;
 			_cdg.loadCDG(song.url+".cdg");
 
 			_soundChannel.stop();
@@ -125,6 +140,8 @@
 		private function _initUI():void {
 			menu_btn.addEventListener(MouseEvent.CLICK, _onClick);
 			songList_btn.addEventListener(MouseEvent.CLICK, _onClick);
+			playList_btn.addEventListener(MouseEvent.CLICK, _onClick);
+			stop_btn.addEventListener(MouseEvent.CLICK, _onClick);
 		}
 
 		private function _onClick(e:MouseEvent):void {
@@ -142,6 +159,13 @@
 					break;
 				case songList_btn :
 					_songPanel.show();
+					break;
+				case playList_btn :
+					_songPanel.show(SongListPanel.PLAYLIST);
+					break;
+				case stop_btn:
+					_nextSong(null);
+					_songPanel.show(SongListPanel.PLAYLIST);
 					break;
 			}
 		}
@@ -174,8 +198,11 @@
 				_cdg.setSize(stage.stageWidth, stage.stageHeight);
 				_playbackWindow.addChild(_cdg);
 
+				// sound panel
 				_soundChannel.stop();
 				_soundChannel = _music.play();
+				_soundChannel.addEventListener(Event.SOUND_COMPLETE, _nextSong);	
+				
 				var songName:String = "";
 				if (_music.id3.songName != null) {
 					songName = _music.id3.songName;
