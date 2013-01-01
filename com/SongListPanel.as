@@ -8,20 +8,19 @@
 	
 	public class SongListPanel extends Sprite {
 		
-		public static const PLAY_SONG:String = "PlaySong";
+		public static const START_SONG:String = "StartSong";
+		public static const PLAYLIST:String = "Playlist";
 		private static const PADDING:uint = 5;
 		private var _container:Sprite;
 		private var _items:Array = new Array();
-		private var _list:Array;
 		private var _selectedSong:Song;
 		private var _leftArrow:LeftArrow;
 		private var _rightArrow:RightArrow;
 		private var _searchPanel:Search;
-		private var _startIndex:uint;
-		private var _endIndex:uint;
 		private var _songManager:SongManager;
 		private var _pageCount:uint;
-
+		private var _offset:int;
+		
 		public function SongListPanel(songManager:SongManager) {
 			// constructor code
 			_songManager = songManager;
@@ -37,10 +36,11 @@
 			_leftArrow.addEventListener(MouseEvent.CLICK, _onNavigate);
 			_rightArrow.addEventListener(MouseEvent.CLICK, _onNavigate);
 			_searchPanel.search_txt.addEventListener(Event.CHANGE, _onSearch);
+			
+			_offset = 0;
 		}
 		
-		private function _showList(startIndex:uint = 0):void {
-			var list:Array = _songManager.getSongList(startIndex);
+		private function _showList(list:Array):void {
 			_destroyAllItems();
 			
 			// add heading
@@ -50,8 +50,6 @@
 			_items.push(songItem);
 			
 			// add songs
-			_list = list;
-			_startIndex = startIndex;
 			var itemHeight:uint = songItem.height;
 			_pageCount = Math.floor(stage.stageHeight/itemHeight) - 2;
 			var startY:uint = itemHeight;
@@ -64,15 +62,14 @@
 				songItem.y = startY ;
 				startY += songItem.height;
 			}
-			_endIndex = _startIndex + _pageCount;
 			
-			if (_endIndex < _songManager.getTotal()) {
+			if (_offset + _pageCount < _songManager.getTotal()) {
 				_container.addChild(_rightArrow);
 				_rightArrow.x = stage.stageWidth-_rightArrow.width - PADDING;
 				_rightArrow.y = stage.stageHeight-_rightArrow.height - PADDING;
 			}
 			
-			if (_startIndex > 0) {
+			if (_offset > 0) {
 				_container.addChild(_leftArrow);
 				_leftArrow.x = stage.stageWidth-_leftArrow.width - _leftArrow.width - PADDING*2;
 				_leftArrow.y = stage.stageHeight-_leftArrow.height - PADDING;
@@ -101,7 +98,7 @@
 		}
 		
 		public function setSize(w:uint, h:uint):void {
-			_showList(_startIndex);
+			_showList(_songManager.getSongList(_offset));
 			
 			_rightArrow.x = stage.stageWidth-_rightArrow.width - PADDING;
 			_rightArrow.y = stage.stageHeight-_rightArrow.height - PADDING;
@@ -115,33 +112,37 @@
 		
 		private function _onClick(e:MouseEvent):void {
 			_selectedSong = e.target.song;
-			dispatchEvent(new Event(PLAY_SONG));
+			_songManager.addToPlaylist(_selectedSong);
+			dispatchEvent(new Event(START_SONG));
 		}
 		
 		private function _onSearch(e:Event):void {
-			trace(e.target.text);
 			_songManager.findSong(e.target.text);
-			_showList();
+			_offset = 0;
+			var list:Array = _songManager.getSongList(0);
+			_showList(list);
 		}
 		
 		private function _onNavigate(e:MouseEvent):void {
 			switch (e.target) {
 				case _leftArrow:
-					var startIndex:int = _startIndex-_pageCount;
-					if (startIndex < 0) {
-						startIndex = 0;
+				
+					_offset -= _pageCount;
+					if (_offset < 0) {
+						_offset = 0;
 					}
-					_showList(startIndex);
+					_showList( _songManager.getSongList(_offset));
 					break;
 				case _rightArrow:
-					_showList(_endIndex);
+					_offset += _pageCount;
+					_showList( _songManager.getSongList(_offset));
 					break;
 			}
 		}
 		
 		public function refreshList():void {			
 			// show song list			
-			_showList();
+			_showList(_songManager.getSongList(_offset));
 		}
 		
 		public function hide():void {
@@ -149,8 +150,17 @@
 			_container.visible = false;
 		}
 		
-		public function show():void {
+		public function show(type:String = null):void {
 			_container.visible = true;
+			switch (type) {
+				case PLAYLIST:
+					_offset = 0;
+					_showList(_songManager.getPlaylist(0));
+					break;
+				default:
+					_showList(_songManager.getSongList(_offset));
+					break;
+			}
 		}
 
 	}

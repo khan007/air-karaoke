@@ -17,6 +17,7 @@
 	public class SongManager extends EventDispatcher{
 
 		private var _mp3List:Array = new Array();
+		private var _currentPlaylist:Array = new Array();
 		private var _song:Sound = new Sound();
 		private var _sql:SQLConnection;
 		private var _sqlStatement:SQLStatement;
@@ -141,6 +142,22 @@
 			}
 
 			return songs;
+		}
+		
+		public function addToPlaylist(song:Song):void {
+			_currentPlaylist.push(song);
+		}
+		
+		public function getPlaylist(startIndex:uint = 0, len:uint = MAX_RESULT):Array {
+			return _currentPlaylist;
+		}
+		
+		public function getNextSong():Song {
+			_currentPlaylist.splice(0,1);
+			if (_currentPlaylist.length > 0) {
+				return _currentPlaylist[0];
+			}
+			return null;
 		}
 
 		public function readMP3TagAsync(mp3List:Array):void {
