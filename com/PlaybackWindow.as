@@ -10,11 +10,15 @@
 	import flash.display.StageAlign;
 	import flash.display.Sprite;
 	import flash.display.DisplayObject;
+	import flash.utils.setTimeout;
+	import flash.utils.clearTimeout;
+	import flash.ui.Mouse;
 
 	public class PlaybackWindow extends NativeWindow {
 
 		private var _bkg:Sprite;
 		private var _children:Array;
+		private var _hideMouseDelay:uint;
 
 		public function PlaybackWindow() {
 			// constructor code
@@ -30,6 +34,7 @@
 			stage.doubleClickEnabled = true;
 			stage.addEventListener(Event.RESIZE, _onStageResize);
 			stage.addEventListener(MouseEvent.DOUBLE_CLICK, _onDoubleClick);
+			stage.addEventListener(Event.FULLSCREEN, _onFullscreen);
 
 			// window setup
 			stage.nativeWindow.addEventListener(Event.CLOSING, _onCloseWindow);
@@ -91,11 +96,31 @@
 
 		private function _onDoubleClick(e:Event):void {
 			if (stage.displayState == StageDisplayState.NORMAL) {
-				stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+				stage.displayState = StageDisplayState.FULL_SCREEN;
 			} else {
 				stage.displayState = StageDisplayState.NORMAL;
 			}
+		}
 
+		private function _onFullscreen(e:Event):void {
+			if (stage.displayState == StageDisplayState.NORMAL) {
+				clearTimeout(_hideMouseDelay);
+				Mouse.show();
+				stage.removeEventListener(MouseEvent.MOUSE_MOVE, _showMouse);
+			} else {
+				stage.addEventListener(MouseEvent.MOUSE_MOVE, _showMouse);
+			}
+		}
+
+		private function _showMouse(e:MouseEvent):void {
+			Mouse.show();
+			clearTimeout(_hideMouseDelay);
+			_hideMouseDelay = setTimeout(this._hideMouse,500);
+		}
+
+		private function _hideMouse():void {
+			trace("hide mouse");
+			Mouse.hide();
 		}
 
 	}

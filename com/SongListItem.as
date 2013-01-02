@@ -36,6 +36,8 @@
 			
 					this.addEventListener(MouseEvent.MOUSE_OVER, _onOver);
 					this.addEventListener(MouseEvent.MOUSE_OUT, _onOut);
+					this.addEventListener(MouseEvent.MOUSE_UP, _onOver);
+					this.addEventListener(MouseEvent.MOUSE_DOWN, _onDown);
 					break;
 				case HEADING:
 					var str:String = data as String;
@@ -81,6 +83,8 @@
 			if (this.hasEventListener(MouseEvent.MOUSE_OVER)) {
 				this.removeEventListener(MouseEvent.MOUSE_OVER, _onOver);
 				this.removeEventListener(MouseEvent.MOUSE_OUT, _onOut);
+				this.removeEventListener(MouseEvent.MOUSE_UP, _onOver);
+				this.removeEventListener(MouseEvent.MOUSE_DOWN, _onDown);
 			}
 		}
 		
@@ -90,6 +94,10 @@
 		
 		private function _onOut(e:MouseEvent):void {
 			bar_mc.gotoAndStop("out");
+		}
+		
+		private function _onDown (e:MouseEvent):void {
+			bar_mc.gotoAndStop("down");
 		}
 	}
 
