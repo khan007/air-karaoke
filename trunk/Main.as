@@ -149,7 +149,6 @@
 			if (this.contains(_menu)) {
 				this.removeChild(_menu);
 			}
-			_songPanel.hide();
 			
 			switch (e.target) {
 				case menu_btn :
@@ -158,14 +157,14 @@
 						_menu.y = (stage.stageHeight - _menu.height)/2;
 					break;
 				case songList_btn :
-					_songPanel.show();
+					_songPanel.show(SongListPanel.SONG_LIST);
 					break;
 				case playList_btn :
 					_songPanel.show(SongListPanel.PLAYLIST);
 					break;
 				case stop_btn:
 					_nextSong(null);
-					_songPanel.show(SongListPanel.PLAYLIST);
+					_songPanel.refreshList();
 					break;
 			}
 		}
