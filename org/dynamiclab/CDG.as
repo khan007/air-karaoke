@@ -1,4 +1,4 @@
-﻿package org.dynamiclab {
+﻿package org.dynamiclab{
 
 	import flash.net.URLLoader;
 	import flash.net.URLRequest;
@@ -30,7 +30,7 @@
 		private const LOAD_COLOR_TABLE_HIGH = 31;
 		private const WIDTH = 320;
 		private const HEIGHT = 216;
-		
+
 		private var _cdgByte:ByteArray;
 		private var _currentPos:int = -1;
 		private var _colorTable:Array = new Array();
@@ -38,19 +38,19 @@
 		private var _currentPacket:uint;
 		private var _lastRanderdPosition:Number;
 		private var _cTransform:ColorTransform = new ColorTransform();
-		private var _bitData:BitmapData;
 		private var _rect:Rectangle = new Rectangle(0,0,WIDTH,HEIGHT);
 		private var _width:uint,_height:uint;
 		private var _cdgBitmap:Bitmap;
+		private var _pixelColorIndex:Array;
 
 		public function CDG(w:uint, h:uint) {
 			// constructor code
 			_width = w;
 			_height = h;
-			
-			_cdgBitmap = new Bitmap()
+
+			_cdgBitmap = new Bitmap();
 			_cdgBitmap.smoothing = true;
-			
+
 			this.addChild(_cdgBitmap);
 		}
 
@@ -66,49 +66,55 @@
 		function _loadComplete(e:Event):void {
 			var loader:URLLoader = e.target as URLLoader;
 			_cdgByte = loader.data;
-			
+
 			// initialize settings
 			_currentPos = 0;
 			_currentPacket = 0;
 			_lastRanderdPosition = 0;
-			if (_bitData) {
-				_bitData.dispose();
-			}
-			_bitData = new BitmapData(WIDTH,HEIGHT,false,0x000000);
-
+			
+			_pixelColorIndex = new Array();
 			dispatchEvent(e);
 		}
 
 		public function render(tempPos:int, transparent:Boolean = false):void {
+			var bitData:BitmapData;
+			bitData = new BitmapData(WIDTH,HEIGHT,false,0x000000);
+			
+			// populate the bitmap data from the indexed color table
+			for (var y:uint = 0; y < HEIGHT; y++) {
+				for (var x:uint = 0; x < WIDTH; x++) {
+					bitData.setPixel(x, y, _colorTable[_pixelColorIndex[y * WIDTH + x]]);
+				}
+			}
+			
 			for (var i:int = _currentPos; i < tempPos; i++) {
 				_draw(i);
 			}
 			_currentPos = tempPos;
-			
+
 			// find min scale
 			var scale:Number = Math.min(_width/WIDTH, _height/HEIGHT);
-			
 			var bd:BitmapData = new BitmapData(WIDTH*scale, HEIGHT*scale, true, 0x00000000);
 			var m:Matrix = new Matrix();
 			m.scale(scale, scale);
-			bd.draw(_bitData, m);
-				
+			bd.draw(bitData, m);
+
 			if (transparent && !isNaN(_clearColor)) {
 				// removes the background color of the CDG file
 				bd.threshold(bd, new Rectangle(0,0,WIDTH*scale,HEIGHT*scale), new Point(0,0), "==", _clearColor+0xff000000, 0x00000000, 0xFFFFFFFF, true);
 			}
-			
+
 			_cdgBitmap.bitmapData = bd;
 		}
-		
+
 		public function setSize(w:uint, h:uint):void {
 			_width = w;
 			_height = h;
-			
+
 			// center the bitmap
 			var scale:Number = Math.min(_width/WIDTH, _height/HEIGHT);
-			_cdgBitmap.x = (_width - WIDTH*scale) / 2;
-			_cdgBitmap.y = (_height - HEIGHT*scale) / 2;
+			_cdgBitmap.x = (_width - WIDTH * scale) / 2;
+			_cdgBitmap.y = (_height - HEIGHT * scale) / 2;
 		}
 
 		private function _draw(e:int) {
@@ -132,7 +138,7 @@
 						var repeat = _cdgByte[i + 5] & 0x0F;
 						if (repeat == 0) {
 							// clear screen
-							_clearScreen(_clearColor);
+							_clearScreen(int(_cdgByte[i + 4] & 0x0F));
 						}
 						break;
 
@@ -141,26 +147,23 @@
 						break;
 					case TILE_BLOCK_NORMAL :
 					case TILE_BLOCK_XOR :
-						var color0 = _colorTable[Number(_cdgByte[i + 4] & 0x0F)];
-						var color1 = _colorTable[Number(_cdgByte[i + 5] & 0x0F)];
+						var color0 = Number(_cdgByte[i + 4] & 0x0F);
+						var color1 = Number(_cdgByte[i + 5] & 0x0F);
 
 						var row = int(_cdgByte[i + 6] & 0x1F) * 12;
 						var column = int(_cdgByte[i + 7] & SC_MASK) * 6;
-
-						for (var j:uint = 0; j < 12; j++) {
-							var scanline:uint = _cdgByte[i + 8 + j] & SC_MASK;
+						
+						for (var y:uint = 0; y < 12; y++) {
+							var scanline:uint = _cdgByte[i + 8 + y] & SC_MASK;
 							for (var l:uint =0; l< 6; l++) {
 								var color:int = int(scanline & 0x1) == 0 ? color0:color1;
 
-								scanline = scanline >> 1;
-
-								if (type == TILE_BLOCK_NORMAL) {
-									_bitData.setPixel(column+(5-l), row+j, color);
-								} else {
-									var toXOR = _bitData.getPixel(column+(5-l), row+j);
-									color = _colorTable[_colorTable.indexOf(toXOR) ^ _colorTable.indexOf(color)];
-									_bitData.setPixel(column+(5-l), row+j, color);
+								// do XOR calculation if need to
+								if (type == TILE_BLOCK_XOR) {
+									color = _pixelColorIndex[(column+(5-l)) + (row+y)*WIDTH] ^ color;
 								}
+								_pixelColorIndex[(column+(5-l)) + (row+y)*WIDTH] = color;								
+								scanline = scanline >> 1;
 							}
 						}
 						break;
@@ -169,10 +172,10 @@
 						break;
 					case LOAD_COLOR_TABLE_LO :
 					case LOAD_COLOR_TABLE_HIGH :
-						var startIndex = type == LOAD_COLOR_TABLE_HIGH ? 8: 0;
+						var startIndex = type == LOAD_COLOR_TABLE_HIGH ? 8:0;
 						for (var m:uint = 0; m<8; m++) {
 							var cdgColor:Array = decodeColor(_cdgByte[i + 4 + m * 2],_cdgByte[i + 5 + m * 2]);
-							_colorTable[m + startIndex] = _RGBToHex(cdgColor[0]*17, cdgColor[1]*17, cdgColor[2]*17);
+							_colorTable[m + startIndex] = _RGBToHex(cdgColor[0] * 17,cdgColor[1] * 17,cdgColor[2] * 17);
 						}
 						break;
 				}
@@ -186,7 +189,12 @@
 		}
 
 		private function _clearScreen(color) {
-			_bitData.fillRect(_rect, color);
+			for (var y:uint = 0; y < HEIGHT; y++) {
+				for (var x:uint = 0; x < WIDTH; x++) {
+					// fill every pixel with one color
+					_pixelColorIndex[y * WIDTH + x] = color;
+				}
+			}
 		}
 
 		public function decodeColor(high, low):Array {

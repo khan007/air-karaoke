@@ -66,8 +66,11 @@
 			return mp3List;
 		}
 
-		public function getTotal():uint {
+		public function getSongTotal():uint {
 			return _total;
+		}
+		public function getPlaylistTotal():uint {
+			return _currentPlaylist.length;
 		}
 
 		public function findSong(str:String):Array {
@@ -102,7 +105,6 @@
 				}
 				_sqlStatement.text += likeStatements;
 			}
-			trace(_sqlStatement.text);
 			_sqlStatement.execute();
 			
 			// go through result;
@@ -129,7 +131,6 @@
 				_sqlStatement.text += likeStatements;	
 			}
 			_sqlStatement.text += " ORDER BY name LIMIT "+len+" OFFSET "+startIndex;
-			trace(_sqlStatement.text);
 			_sqlStatement.execute();
 
 			// go through result;
@@ -149,7 +150,7 @@
 		}
 		
 		public function getPlaylist(startIndex:uint = 0, len:uint = MAX_RESULT):Array {
-			return _currentPlaylist;
+			return _currentPlaylist.slice(startIndex, len);
 		}
 		
 		public function getNextSong():Song {
