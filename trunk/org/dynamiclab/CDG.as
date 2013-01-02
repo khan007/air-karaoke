@@ -1,4 +1,21 @@
-﻿package org.dynamiclab{
+﻿/*
+ * CD+G reader
+ * Reads and renders CD+G file used in Karaoke
+ * 
+ * @version: 0.9
+ * @date: 02/01/2013
+ * @author: Guo-Hao (Andrew) Lay
+ * @Usage:
+ *   1. Create an instance of this class.
+ *   2. Call LoadCDG to load the file
+ *   3. Call render function using a frame loop
+ * @Reference: 
+ *   - CDG File structure reference: http://jbum.com/cdg_revealed.html
+ *   - CDG AS3 bytearray handling: http://www.as3.ro/blog/archives/261
+ *   - CDG_toolkit (JAVA): http://code.google.com/p/cdg-toolkit/
+*/
+
+package org.dynamiclab{
 
 	import flash.net.URLLoader;
 	import flash.net.URLRequest;
@@ -143,7 +160,7 @@
 						break;
 
 					case BORDER_PRESET :
-						// _cdgByte[i+4] & 0x0F;
+						// not implemente
 						break;
 					case TILE_BLOCK_NORMAL :
 					case TILE_BLOCK_XOR :
@@ -168,7 +185,7 @@
 						}
 						break;
 					case DEFINE_TRANSPARENT_COLOR :
-						// trace(  "Define Transparent Color ",  _cdgByte[i+1]&SC_MASK);
+						// not implemented
 						break;
 					case LOAD_COLOR_TABLE_LO :
 					case LOAD_COLOR_TABLE_HIGH :
