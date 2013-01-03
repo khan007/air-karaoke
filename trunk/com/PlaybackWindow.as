@@ -115,11 +115,10 @@
 		private function _showMouse(e:MouseEvent):void {
 			Mouse.show();
 			clearTimeout(_hideMouseDelay);
-			_hideMouseDelay = setTimeout(this._hideMouse,500);
+			_hideMouseDelay = setTimeout(this._hideMouse,2000);
 		}
 
 		private function _hideMouse():void {
-			trace("hide mouse");
 			Mouse.hide();
 		}
 

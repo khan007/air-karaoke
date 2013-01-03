@@ -51,7 +51,8 @@ package org.dynamiclab{
 		private var _cdgByte:ByteArray;
 		private var _currentPos:int = -1;
 		private var _colorTable:Array = new Array();
-		private var _clearColor:Number;
+		private var _bkgColor:Number;
+		private var _transparentColorIndex:int;
 		private var _currentPacket:uint;
 		private var _lastRanderdPosition:Number;
 		private var _cTransform:ColorTransform = new ColorTransform();
@@ -88,37 +89,53 @@ package org.dynamiclab{
 			_currentPos = 0;
 			_currentPacket = 0;
 			_lastRanderdPosition = 0;
+			_transparentColorIndex = -1;
 			
 			_pixelColorIndex = new Array();
 			dispatchEvent(e);
 		}
 
 		public function render(tempPos:int, transparent:Boolean = false):void {
-			var bitData:BitmapData;
-			bitData = new BitmapData(WIDTH,HEIGHT,false,0x000000);
-			
-			// populate the bitmap data from the indexed color table
-			for (var y:uint = 0; y < HEIGHT; y++) {
-				for (var x:uint = 0; x < WIDTH; x++) {
-					bitData.setPixel(x, y, _colorTable[_pixelColorIndex[y * WIDTH + x]]);
-				}
-			}
-			
+			// update pixel color data
 			for (var i:int = _currentPos; i < tempPos; i++) {
 				_draw(i);
 			}
 			_currentPos = tempPos;
+			
+			// populate the bitmap data from the indexed color table
+			var bitData:BitmapData;
+			if (_transparentColorIndex > -1 && transparent) {
+				// create 32 bit transparent bitmap
+				bitData = new BitmapData(WIDTH,HEIGHT,true,0x00000000);
+				
+				for (var y:uint = 0; y < HEIGHT; y++) {
+					for (var x:uint = 0; x < WIDTH; x++) {
+						var index:uint = _pixelColorIndex[y * WIDTH + x];
+						var opacity:uint = (index == _transparentColorIndex) ? 0x00000000 : 0xff000000;
+						bitData.setPixel32(x, y, _colorTable[index] + opacity);
+					}
+				}
+			} else {
+				// create solid bitmap with bkg removal
+				bitData = new BitmapData(WIDTH,HEIGHT,false,0x000000);
+				
+				for (var y:uint = 0; y < HEIGHT; y++) {
+					for (var x:uint = 0; x < WIDTH; x++) {
+						bitData.setPixel(x, y, _colorTable[_pixelColorIndex[y * WIDTH + x]]);
+					}
+				}
+			}
 
-			// find min scale
+			// find min scale & upscale picture
 			var scale:Number = Math.min(_width/WIDTH, _height/HEIGHT);
 			var bd:BitmapData = new BitmapData(WIDTH*scale, HEIGHT*scale, true, 0x00000000);
 			var m:Matrix = new Matrix();
 			m.scale(scale, scale);
 			bd.draw(bitData, m);
 
-			if (transparent && !isNaN(_clearColor)) {
-				// removes the background color of the CDG file
-				bd.threshold(bd, new Rectangle(0,0,WIDTH*scale,HEIGHT*scale), new Point(0,0), "==", _clearColor+0xff000000, 0x00000000, 0xFFFFFFFF, true);
+			if (_transparentColorIndex == -1 && transparent && !isNaN(_bkgColor)) {
+				// removes the background color of the CDG file if transparent color is not defined
+				bd.threshold(bd, new Rectangle(0,0,WIDTH*scale,HEIGHT*scale), new Point(0,0), "==", _bkgColor+0xff000000, 0x00000000, 0xFFFFFFFF, true);
 			}
 
 			_cdgBitmap.bitmapData = bd;
@@ -151,7 +168,7 @@ package org.dynamiclab{
 				var type:Number = Number(_cdgByte[i + 1] & SC_MASK);
 				switch (type) {
 					case MEMORY_PRESET :
-						_clearColor = _colorTable[int(_cdgByte[i + 4] & 0x0F)];
+						_bkgColor = _colorTable[int(_cdgByte[i + 4] & 0x0F)];
 						var repeat = _cdgByte[i + 5] & 0x0F;
 						if (repeat == 0) {
 							// clear screen
@@ -160,7 +177,7 @@ package org.dynamiclab{
 						break;
 
 					case BORDER_PRESET :
-						// not implemente
+						// _cdgByte[i+4] & 0x0F;
 						break;
 					case TILE_BLOCK_NORMAL :
 					case TILE_BLOCK_XOR :
@@ -185,7 +202,7 @@ package org.dynamiclab{
 						}
 						break;
 					case DEFINE_TRANSPARENT_COLOR :
-						// not implemented
+						_transparentColorIndex = int(_cdgByte[i + 4] & 0x0F);
 						break;
 					case LOAD_COLOR_TABLE_LO :
 					case LOAD_COLOR_TABLE_HIGH :
