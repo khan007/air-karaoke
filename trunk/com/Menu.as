@@ -19,6 +19,7 @@
 			
 			// init buttons
 			updateDatabase_btn.addEventListener(MouseEvent.CLICK, _onClick);
+			reset_btn.addEventListener(MouseEvent.CLICK, _onClick);
 			browse_btn.addEventListener(MouseEvent.CLICK, _onClick);
 		}
 		
@@ -30,10 +31,13 @@
 					folder.browseForDirectory("Choose a directory");
 					break;
 				case updateDatabase_btn:
-					var mp3List:Array = _songManager.fetchMP3(Config.get('folder'));
-					_songManager.readMP3TagAsync(mp3List);
+					_songManager.fetchMP3(Config.get('folder'));
 					break;
-			}
+					
+				case reset_btn:
+					_songManager.resetDatabase();
+					break;
+				}
 		}
 		
 		private function _onFolderSelected(e:Event):void {

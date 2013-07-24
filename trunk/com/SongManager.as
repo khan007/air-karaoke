@@ -4,6 +4,7 @@
 	import flash.net.URLRequest;
 	import flash.filesystem.File;
 	import flash.events.Event;
+	import flash.events.FileListEvent;
 
 	import flash.data.SQLConnection;
 	import flash.data.SQLStatement;
@@ -24,6 +25,7 @@
 		private var _total:uint = 0;
 		private var _searchString:String = "";
 		private var _foundTotal:uint = 0;
+		private var _folders:Array;
 		
 		public static const MAX_RESULT:uint = 50;
 		public static const REFRESH:String = "Refresh";
@@ -40,30 +42,68 @@
 			// open database,If the file doesn't exist yet, it will be created
 			_sql.open(dbFile);
 		}
+		
+		public function resetDatabase():void {			
+			// drop table
+			_sqlStatement.clearParameters();
+			_sqlStatement.text = "DROP TABLE songs";
+			_sqlStatement.execute();
 
-		public function fetchMP3(folderPath:String):Array {
-			var mp3List:Array = new Array();
+			// re-create table;
+			_sqlStatement.text = "CREATE TABLE IF NOT EXISTS songs (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, artist TEXT, path TEXT, count INTEGER)";
+			_sqlStatement.execute();
+			
+			dispatchEvent(new Event(REFRESH));
+		}
+		
+		public function fetchMP3(folderPath:String):void {
+			_folders = _getDirectories(folderPath);
+			_readDirectories();
+		}
+		
+		private function _getDirectories(folderPath:String):Array {
 			var folder:File = new File();
 			folder.nativePath = folderPath;
 
-			var files:Array = folder.getDirectoryListing();
+			var files = folder.getDirectoryListing();
+			var mp3List:Array = new Array();
+			var folders = new Array();
+			
 			for (var i:uint = 0; i < files.length; i++) {
 				var file:File = files[i];
-				if (! file.isDirectory) {
-					// is a file, check if it's CDG
-					if (file.name.substr(-3).toLowerCase() == "cdg") {
-						// it's a CDG, check for matching MP3
-						var mp3File:File = file.parent.resolvePath(file.name.substr(0,file.name.length - 4) + ".mp3");
-						if (mp3File.exists) {
-							mp3List.push(mp3File);
-						}
-					}
-				} else {
-					mp3List = mp3List.concat(fetchMP3(file.nativePath));
+				if (file.isDirectory) {
+					folders.push(file.nativePath);
+					folders = folders.concat(_getDirectories(file.nativePath));
 				}
 			}
 			
-			return mp3List;
+			return folders;
+		}
+		
+		private function _readDirectories():void {
+			if (_folders.length > 0) {
+				var folder:File = new File();
+				folder.nativePath = _folders[0];
+				var mp3List:Array = new Array();
+	
+				var files = folder.getDirectoryListing();
+				
+				for (var j:uint = 0; j < files.length; j++) {
+					var file:File = files[j];
+					if (! file.isDirectory) {
+						// is a file, check if it's CDG
+						if (file.name.substr(-3).toLowerCase() == "cdg") {
+							// it's a CDG, check for matching MP3
+							var mp3File:File = file.parent.resolvePath(file.name.substr(0,file.name.length - 4) + ".mp3");
+							if (mp3File.exists) {
+								mp3List.push(mp3File);
+							}
+						}
+					}
+				}
+			
+				_readMP3TagAsync(mp3List);
+			}
 		}
 
 		public function getSongTotal():uint {
@@ -161,16 +201,7 @@
 			return null;
 		}
 
-		public function readMP3TagAsync(mp3List:Array):void {
-			// drop table
-			_sqlStatement.clearParameters();
-			_sqlStatement.text = "DROP TABLE songs";
-			_sqlStatement.execute();
-
-			// re-create table;
-			_sqlStatement.text = "CREATE TABLE IF NOT EXISTS songs (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, artist TEXT, path TEXT, count INTEGER)";
-			_sqlStatement.execute();
-
+		private function _readMP3TagAsync(mp3List:Array):void {
 			_mp3List = mp3List;
 			_foundTotal = mp3List.length;
 			_readMP3();
@@ -181,14 +212,19 @@
 				_song = new Sound(new URLRequest(_mp3List[0].nativePath));
 				_song.addEventListener(Event.COMPLETE, _onComplete);
 			} else {
-				Notify.show("Complete.");
-				dispatchEvent(new Event(REFRESH));
+				if (_folders.length > 1) {
+					_folders.shift();
+					_readDirectories();
+				} else {
+					Notify.show("Complete.");
+					dispatchEvent(new Event(REFRESH));
+				}
 			}
 		}
 
 		private function _onComplete(e:Event):void {
 			// check if exists
-			var url:String = _song.url.substr(0,_song.url.length - 4);
+			var url:String = _song.url.substr(0, _song.url.length - 4);
 			var id3:Object = _song.id3;
 			if (id3 == null) {
 				id3.artist = "Unknown";
@@ -199,18 +235,32 @@
 
 			// only insert if not found
 			_sqlStatement.clearParameters();
-			_sqlStatement.text = "INSERT INTO songs (name, artist, path, count) VALUES(@name, @artist, @path, @count)";
 
 			var songName:String = id3.songName;
 			if (songName == null || trim(songName).length == 0) {
 				// get the filename
 				songName = url.substring(url.lastIndexOf('/') + 1,url.length);
 			}
-			_sqlStatement.parameters["@name"] = songName;
-			_sqlStatement.parameters["@artist"] = id3.artist == null ? "Unknown":id3.artist;
 			_sqlStatement.parameters["@path"] = url;
-			_sqlStatement.parameters["@count"] = 0;
+						
+			// check if already in database
+			_sqlStatement.text = "SELECT * FROM songs WHERE path LIKE @path";
 			_sqlStatement.execute();
+
+			// go through results
+			var sqlresult:SQLResult = _sqlStatement.getResult();
+			if (sqlresult.data != null) {
+				for (var i:uint = 0; i < sqlresult.data.length; i++) {
+					trace("FOUND SONG: "+sqlresult.data[i]['id']);
+				}
+			} else {
+				_sqlStatement.parameters["@name"] = songName;
+				_sqlStatement.parameters["@artist"] = id3.artist == null ? "Unknown":id3.artist;
+				_sqlStatement.parameters["@count"] = 0;
+			
+				_sqlStatement.text = "INSERT INTO songs (name, artist, path, count) VALUES(@name, @artist, @path, @count)";
+				_sqlStatement.execute();
+			}
 
 			_song.removeEventListener(Event.COMPLETE, _onComplete);
 			_song = null;

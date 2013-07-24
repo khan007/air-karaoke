@@ -133,7 +133,7 @@ package org.dynamiclab{
 			m.scale(scale, scale);
 			bd.draw(bitData, m);
 
-			if (_transparentColorIndex == -1 && transparent && !isNaN(_bkgColor)) {
+			if (transparent && !isNaN(_bkgColor)) {
 				// removes the background color of the CDG file if transparent color is not defined
 				bd.threshold(bd, new Rectangle(0,0,WIDTH*scale,HEIGHT*scale), new Point(0,0), "==", _bkgColor+0xff000000, 0x00000000, 0xFFFFFFFF, true);
 			}
