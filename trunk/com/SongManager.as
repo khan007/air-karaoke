@@ -58,6 +58,7 @@
 		
 		public function fetchMP3(folderPath:String):void {
 			_folders = _getDirectories(folderPath);
+			_folders.push(folderPath);
 			_readDirectories();
 		}
 		
@@ -138,7 +139,6 @@
 					if (likeStatements.length > 0) {
 						likeStatements += " AND";
 					}
-					//likeStatements += " (name LIKE '%"+words[i]+"%' OR artist LIKE '%"+words[i]+"%')";
 					likeStatements += " (name LIKE @param"+parameterCount+" OR artist LIKE @param"+parameterCount+")";
 					_sqlStatement.parameters["@param"+parameterCount] = '%'+words[i]+'%';
 					parameterCount++;
@@ -209,7 +209,7 @@
 
 		private function _readMP3():void {
 			if (_mp3List.length > 0) {
-				_song = new Sound(new URLRequest(_mp3List[0].nativePath));
+				_song = new Sound(new URLRequest(_mp3List[0].nativePath.replace('%', '%25')));
 				_song.addEventListener(Event.COMPLETE, _onComplete);
 			} else {
 				if (_folders.length > 1) {
@@ -231,7 +231,7 @@
 				id3.songName = null;
 			}
 
-			Notify.show(Math.round(((_foundTotal-_mp3List.length)/_foundTotal)*100)+"% Done. Adding: "+url);
+			Notify.show(_folders.length+ " folders left. "+Math.round(((_foundTotal-_mp3List.length)/_foundTotal)*100)+"% Done. Adding: "+url);
 
 			// only insert if not found
 			_sqlStatement.clearParameters();
