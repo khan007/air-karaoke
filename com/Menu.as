@@ -31,7 +31,11 @@
 					folder.browseForDirectory("Choose a directory");
 					break;
 				case updateDatabase_btn:
-					_songManager.fetchMP3(Config.get('folder'));
+					try {
+						_songManager.fetchMP3(Config.get('folder'));
+					}catch (err:Error) {
+						Notify.show(err.message);
+					}
 					break;
 					
 				case reset_btn:
